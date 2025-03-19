@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Room Allocation</title>
+    <style>
+        /* General Page Styling */
+body {
+    font-family: 'Arial', sans-serif;
+    background: linear-gradient(to right, #6a11cb, #f2eb19);
+    color: white;
+    text-align: center;
+    padding: 20px;
+}
+
+/* Container */
+.container {
+    max-width: 600px;
+    margin: auto;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+/* File Input */
+input[type="file"] {
+    display: block;
+    margin: 10px auto;
+    padding: 10px;
+    border: none;
+    border-radius: 5px;
+    background: white;
+    color: black;
+    cursor: pointer;
+}
+
+/* Button */
+button {
+    background: #ff5733;
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    font-size: 16px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+button:hover {
+    background: #ff2e00;
+}
+
+/* Table Styling */
+table {
+    width: 100%;
+    margin-top: 20px;
+    border-collapse: collapse;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+th, td {
+    padding: 10px;
+    border: 1px solid white;
+}
+
+th {
+    background: rgba(255, 255, 255, 0.3);
+    font-weight: bold;
+}
+
+td {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+
+    </style>
+</head>
+<body>
+    <h2>Room Allocation System</h2>
+    <input type="file" id="groupFile" accept=".csv">
+<input type="file" id="hostelFile" accept=".csv">
+<button id="allocateBtn">Allocate Rooms</button>
+
+<table>
+    <thead>
+        <tr><th>Group ID</th><th>Member Name</th><th>Allocated Hostel</th></tr>
+    </thead>
+    <tbody id="resultsTable"></tbody>
+</table>
+
+    <a id="downloadLink" href="#" style="display:none;">Download Allocation Results</a>
+    
+    <script>
+        document.getElementById("allocateBtn").addEventListener("click", async function () {
+    const groupFile = document.getElementById("groupFile").files[0];
+    const hostelFile = document.getElementById("hostelFile").files[0];
+
+    if (!groupFile || !hostelFile) {
+        alert("Please upload both CSV files!");
+        return;
+    }
+
+    const groupData = await readCSV(groupFile);
+    const hostelData = await readCSV(hostelFile);
+
+    const allocations = allocateRooms(groupData, hostelData);
+    displayAllocations(allocations);
+    generateCSV(allocations);
+});
+
+// Function to read CSV file and parse it
+async function readCSV(file) {
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const rows = event.target.result.split("\n").map(row => row.trim().split(","));
+            resolve(rows.slice(1)); // Exclude headers
+        };
+        reader.readAsText(file);
+    });
+}
+
+// Function to allocate rooms
+function allocateRooms(groups, hostels) {
+    const boysHostels = [], girlsHostels = [];
+    hostels.forEach(([hostel, capacity, gender]) => {
+        if (gender === "Male") boysHostels.push({ hostel, capacity: parseInt(capacity), occupants: [] });
+        else if (gender === "Female") girlsHostels.push({ hostel, capacity: parseInt(capacity), occupants: [] });
+    });
+
+    const allocations = [];
+
+    groups.forEach(([groupID, member, gender]) => {
+        let assigned = false;
+        let availableHostels = gender === "Male" ? boysHostels : girlsHostels;
+
+        for (let hostel of availableHostels) {
+            if (hostel.occupants.length < hostel.capacity) {
+                hostel.occupants.push(member);
+                allocations.push({ groupID, member, hostel: hostel.hostel });
+                assigned = true;
+                break;
+            }
+        }
+
+        if (!assigned) {
+            allocations.push({ groupID, member, hostel: "No Available Room" });
+        }
+    });
+
+    return allocations;
+}
+
+// Function to display allocations in the UI
+function displayAllocations(allocations) {
+    const tableBody = document.getElementById("resultsTable");
+    tableBody.innerHTML = "";
+    allocations.forEach(({ groupID, member, hostel }) => {
+        const row = `<tr><td>${groupID}</td><td>${member}</td><td>${hostel}</td></tr>`;
+        tableBody.innerHTML += row;
+    });
+}
+
+// Function to generate and download CSV file
+function generateCSV(allocations) {
+    let csvContent = "GroupID,MemberName,AllocatedHostel\n";
+    allocations.forEach(({ groupID, member, hostel }) => {
+        csvContent += `${groupID},${member},${hostel}\n`;
+    });
+
+    const blob = new Blob([csvContent], { type: "text/csv" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "room_allocations.csv";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+    </script>
+</body>
+</html>
